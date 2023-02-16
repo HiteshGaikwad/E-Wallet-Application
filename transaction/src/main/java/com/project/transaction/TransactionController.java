@@ -16,8 +16,10 @@ public class TransactionController {
     TransactionService transactionService;
 
     @PostMapping("/create")
-    public void createTransaction (@RequestBody() TransactionRequest transactionRequest) throws JsonProcessingException {
+    public void createTransaction(@RequestBody()TransactionRequest transactionRequest) throws JsonProcessingException {
 
         transactionService.createTransaction(transactionRequest);
+
     }
+
 }

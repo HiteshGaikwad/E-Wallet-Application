@@ -18,6 +18,7 @@
 		<module>Wallet</module>
 		<module>User</module>
 		<module>transaction</module>
+		<module>Notification</module>
 	</modules>
 	<properties>
 		<java.version>19</java.version>

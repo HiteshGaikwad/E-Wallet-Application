@@ -5,11 +5,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.util.Date;
 import java.util.UUID;
 
@@ -69,7 +73,7 @@ public class TransactionService {
 
         String transactionId = (String) transactionRequest.get("transactionId");
 
-        System.out.println("Reading the transacitonTable Entries"+transactionStatus+"---"+transactionId);
+        System.out.println("Reading the transactionTable Entries"+transactionStatus+"---"+transactionId);
 
         Transaction t = transactionRepository.findByTransactionId(transactionId);
 
@@ -79,6 +83,76 @@ public class TransactionService {
 
         // CALL NOTIFICATION SERVICE AND SEND EMAILS
         callNotificationService(t);
+
+    }
+
+    public void callNotificationService(Transaction transaction){
+
+
+
+        String fromUserName  = transaction.getFromUser();
+        String toUserName = transaction.getToUser();
+
+        String transactionId = transaction.getTransactionId();
+
+
+        URI url = URI.create("http://localhost:9998/user/findEmailDto/"+fromUserName);
+        HttpEntity httpEntity = new HttpEntity(new HttpHeaders());
+
+        JSONObject fromUserObject = restTemplate.exchange(url, HttpMethod.GET,httpEntity,JSONObject.class).getBody();
+
+        String senderName = (String)fromUserObject.get("name");
+
+        String senderEmail = (String)fromUserObject.get("email");
+
+        url = URI.create("http://localhost:9998/user/findEmailDto/"+toUserName);
+        JSONObject toUserObject = restTemplate.exchange(url, HttpMethod.GET,httpEntity,JSONObject.class).getBody();
+
+        String receiverEmail = (String)toUserObject.get("email");
+        String receiverName = (String)toUserObject.get("name");
+
+
+        //SEND THE EMAIL AND MESSAGE TO NOTIFICATIONS-SERVICE VIA KAFKA
+
+        JSONObject emailRequest = new JSONObject();
+
+        System.out.println("We are in transaction Service Layer"+senderName+" "+senderEmail+" "+receiverName+" "+receiverEmail);
+
+        //SENDER should always receive email ---->
+
+        emailRequest.put("email",senderEmail);
+
+        String SenderMessageBody = String.format("Hi %s \n" +
+                        "The transaction with transactionId %s has been %s of Rs %d . ",
+
+
+                senderName,transactionId,transaction.getTransactionStatus(),transaction.getAmount());
+
+        emailRequest.put("message",SenderMessageBody);
+
+        String message = emailRequest.toString();
+
+        //SEND IT TO KAFKA
+        kafkaTemplate.send("send_email",message);
+
+
+        if(transaction.getTransactionStatus().equals("FAILED")){
+            return;
+        }
+
+
+            //SEND an email to the receiver also --->
+            emailRequest.put("email", receiverEmail);
+
+            String receiverMessageBody = String.format("Hi %s you have received money %d from %s",
+                    receiverName, transaction.getAmount(), senderName);
+
+
+            emailRequest.put("message", receiverMessageBody);
+
+            message = emailRequest.toString();
+
+            kafkaTemplate.send("send_email", message);
 
     }
 

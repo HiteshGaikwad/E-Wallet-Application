@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.UUID;
 
 @Entity
-@Table(name="transaction")
+@Table(name="transactions")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -28,12 +28,14 @@ public class Transaction {
 
     private int amount;
 
-    private String transactionId= UUID.randomUUID().toString();
 
-    @Enumerated(value= EnumType.STRING)
-    private TransactionStatus transactionStatus;
+    private String transactionId = UUID.randomUUID().toString();
+
+    @Enumerated(value = EnumType.STRING)
+    private TransactionStatus  transactionStatus;
 
     private Date transactionDate;
 
     private String purpose;
+
 }

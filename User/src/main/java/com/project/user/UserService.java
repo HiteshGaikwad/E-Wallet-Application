@@ -2,11 +2,17 @@ package com.project.user;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 
@@ -25,6 +31,7 @@ public class UserService {
     @Autowired
     KafkaTemplate<String,String> kafkaTemplate;
 
+
     String addUser(UserRequestDto userRequest)
     {
         //
@@ -38,6 +45,8 @@ public class UserService {
 
         //Send an update to the wallet module/ wallet service ---> that create a new wallet from the userName sent as a string.
         kafkaTemplate.send("create_wallet",user.getUserName());
+
+        callNotificationService(user);
 
         return "User Added successfully";
 
@@ -59,7 +68,7 @@ public class UserService {
         Map map= redisTemplate.opsForHash().entries(userName);
 
         User user=null;
-        //if not found int redis/map
+        //if not found in redis/map
         if(map==null){
 
             //find the userObject from db
@@ -76,5 +85,45 @@ public class UserService {
         }
     }
 
+    public UserResponseDto findEmailAndNameDto(String userName){
+
+
+        User user = userRepository.findByUserName(userName);
+
+        UserResponseDto userResponseDto = UserResponseDto.builder().email(user.getEmail()).name(user.getName()).build();
+
+        return userResponseDto;
+    }
+    public void callNotificationService(User user) {
+
+
+        String userName = user.getUserName();
+
+        int userId = user.getId();
+
+        //SEND THE EMAIL AND MESSAGE TO NOTIFICATIONS-SERVICE VIA KAFKA
+
+        JSONObject emailRequest = new JSONObject();
+
+        System.out.println("We are in User Service Layer" + userName + " " + user.getEmail());
+
+        //User should always receive email ---->
+
+        emailRequest.put("email", user.getEmail());
+
+        String SenderMessageBody = String.format("Hello %s \n" +
+                        "Your Account has been created successfully with userId %s. ",
+
+
+                userName, userId);
+
+        emailRequest.put("message", SenderMessageBody);
+
+        String message = emailRequest.toString();
+
+        //SEND IT TO KAFKA
+        kafkaTemplate.send("send_email", message);
+
+    }
 
 }
